@@ -1,5 +1,7 @@
 package advanced
 
+import java.util
+
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import org.json.{JSONArray, JSONObject}
@@ -9,6 +11,8 @@ import org.json.{JSONArray, JSONObject}
   */
 object AssignmentManager{
   //remove session variable cause memory leaks
+  var assignmentIDS = new util.ArrayList[String]()
+  var assignmentIDtoWork = ""
   val desk = scenario("Open Assignment Pane")
 
     .group("Open Assignment pane"){
@@ -24,6 +28,7 @@ object AssignmentManager{
           val ids = idsLength - 1
           for (i <- 0 to ids) {
             println(json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].get(i).asInstanceOf[JSONObject].get("id"))
+            assignmentIDS.add(json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].get(i).asInstanceOf[JSONObject].get("id").toString)
           }
           session
         })
@@ -54,7 +59,14 @@ object AssignmentManager{
       .post("/api/assignment/assignments")
       .headers(Headers.cheaders_createAssignment)
       .body(StringBody("""{"title":"","scheduled":"1476347318564","note":"","assigned":"gromit","createdBy":"gromit","categories":[],"topics":[],"tags":[],"resources":[],"destinations":[], "elements":[]}"""))
+      .check(jsonPath("$").saveAs("assignment"))
     )
+    .exec(session => {
+      val maybeId = session.get("assignment").asOption[String]
+      val json = new JSONObject(maybeId.toList.get.head).get("_embedded")
+      assignmentIDtoWork = json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].asInstanceOf[JSONObject].get("id").toString
+      session
+    })
     .exec(http("Populate assignment with data")
       .put("/api/assignment/assignments/${assignmentID}")
       .headers(Headers.cheaders_createAssignment)
@@ -91,8 +103,8 @@ object AssignmentManager{
       .headers(Headers.headers_common)
       .queryParam("destinations", "destinationID")
     )
-    .exec(http("Delete created Assignment")
-      .delete("/api/assignment/assignments/${assignmentID}")
+    .exec(http("Yelete created Assignment")
+      .delete("/api/assignment/assignments/${assignmentIDtoWork}")
       .headers(Headers.cheaders_createAssignment)
       .queryParam("destinations", "destinationID")
     )
