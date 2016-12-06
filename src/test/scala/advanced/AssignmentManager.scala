@@ -12,7 +12,6 @@ import org.json.{JSONArray, JSONObject}
 object AssignmentManager{
   //remove session variable cause memory leaks
   var assignmentIDS = new util.ArrayList[String]()
-  var assignmentIDtoWork = ""
   val desk = scenario("Open Assignment Pane")
 
     .group("Open Assignment pane"){
@@ -27,10 +26,10 @@ object AssignmentManager{
           val idsLength = json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].length()
           val ids = idsLength - 1
           for (i <- 0 to ids) {
-            println(json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].get(i).asInstanceOf[JSONObject].get("id"))
+            //println(json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].get(i).asInstanceOf[JSONObject].get("id"))
             assignmentIDS.add(json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].get(i).asInstanceOf[JSONObject].get("id").toString)
           }
-          session
+          session.set("assIDS", assignmentIDS)
         })
         .exec(http("get categories")
           .get("/api/assignment/settings/categories")
@@ -58,14 +57,13 @@ object AssignmentManager{
     .exec(http("Create new assignment")
       .post("/api/assignment/assignments")
       .headers(Headers.cheaders_createAssignment)
-      .body(StringBody("""{"title":"","scheduled":"1476347318564","note":"","assigned":"gromit","createdBy":"gromit","categories":[],"topics":[],"tags":[],"resources":[],"destinations":[], "elements":[]}"""))
+      .body(StringBody("""{"title":"PERFORMANCE-TEST","scheduled":"1476347318564","note":"","assigned":"gromit","createdBy":"gromit","categories":[],"topics":[],"tags":[],"resources":[],"destinations":[], "elements":[]}"""))
       .check(jsonPath("$").saveAs("assignment"))
     )
     .exec(session => {
       val maybeId = session.get("assignment").asOption[String]
       val json = new JSONObject(maybeId.toList.get.head).get("_embedded")
-      assignmentIDtoWork = json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONArray].asInstanceOf[JSONObject].get("id").toString
-      session
+      session.set("assignmentID", json.asInstanceOf[JSONObject].get("assignment:assignments").asInstanceOf[JSONObject].get("id"))
     })
     .exec(http("Populate assignment with data")
       .put("/api/assignment/assignments/${assignmentID}")
@@ -102,9 +100,9 @@ object AssignmentManager{
       .get("/api/assignment/assignments")
       .headers(Headers.headers_common)
       .queryParam("destinations", "destinationID")
-    )
-    .exec(http("Yelete created Assignment")
-      .delete("/api/assignment/assignments/${assignmentIDtoWork}")
+    ).pause(5)
+    .exec(http("Delete created Assignment")
+      .delete("/api/assignment/assignments/${assignmentID}")
       .headers(Headers.cheaders_createAssignment)
       .queryParam("destinations", "destinationID")
     )
